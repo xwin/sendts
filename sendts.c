@@ -20,6 +20,8 @@ Copyright by Michael Korneev 2015
 #include <unistd.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/stat.h>
+#include <stdbool.h>
 
 #define TS_PACKET_SIZE 188
 #define PKT_ACCUMUL_NUM 10000
@@ -428,6 +430,7 @@ int main (int argc, char *argv[]) {
     char                   *br = NULL;
     char                   *ts_in_udp = NULL;
     int                    bMinOnAccumul = 0;
+    bool                   bEnableRt = true;
     int                    i;
     int                    rt;
     int                    is_multicast = 0;
@@ -637,7 +640,10 @@ int main (int argc, char *argv[]) {
         if(strcmp(argv[i], "-M") == 0) {
             //set minimal file size, based on accumulation buffer value
             bMinOnAccumul = 1;
-            i++;
+            continue;
+        }
+        if(strcmp(argv[i], "-r") == 0) {
+            bEnableRt = false;
             continue;
         }
         if(strcmp(argv[i], "-v0") == 0) {
@@ -715,25 +721,29 @@ int main (int argc, char *argv[]) {
             PrintMsg(st, 1);
         }
     }
-    rt = pthread_setschedparam(pthread_self(), policy, &param);
-    if(rt != 0) {
-        sprintf(st, "pthread_setschedparam");
-        PrintMsg(st, 1);
+    if (bEnableRt) {
+        rt = pthread_setschedparam(pthread_self(), policy, &param);
+        if(rt != 0) {
+            sprintf(st, "pthread_setschedparam");
+            PrintMsg(st, 1);
+        }
     }
     rt = pthread_attr_init(&attr);
     if(rt != 0) {
         sprintf(st, "pthread_attr_init");
         PrintMsg(st, 1);
     }
-    rt = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
-    if(rt != 0) {
-        sprintf(st, "pthread_attr_setinheritsched");
-        PrintMsg(st, 1);
-    }
-    rt = pthread_attr_setschedpolicy(&attr, policy);
-    if(rt != 0) {
-        sprintf(st, "pthread_attr_setschedpolicy");
-        PrintMsg(st, 1);
+    if (bEnableRt) {
+        rt = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+        if(rt != 0) {
+            sprintf(st, "pthread_attr_setinheritsched");
+            PrintMsg(st, 1);
+        }
+        rt = pthread_attr_setschedpolicy(&attr, policy);
+        if(rt != 0) {
+            sprintf(st, "pthread_attr_setschedpolicy");
+            PrintMsg(st, 1);
+        }
     }
     cache_buf = malloc(pkt_full * TS_PACKET_SIZE);
     send_buf = malloc(packet_size);
@@ -792,4 +802,3 @@ int main (int argc, char *argv[]) {
     pthread_attr_destroy(&attr);
     return 0;
 }
-
